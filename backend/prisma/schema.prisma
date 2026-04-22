@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum AssetState {
+  AVAILABLE
+  RESERVED
+  IN_USE
+  MAINTENANCE
+  RETIRED
+}
+
+enum BookingStatus {
+  RESERVED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id             String              @id @default(cuid())
+  name           String
+  email          String              @unique
+  passwordHash   String
+  role           UserRole            @default(USER)
+  certifications UserCertification[]
+  bookings       Booking[]
+  createdAt      DateTime            @default(now())
+}
+
+model Certification {
+  id          String              @id @default(cuid())
+  name        String              @unique
+  users       UserCertification[]
+  assets      Asset[]
+  createdAt   DateTime            @default(now())
+}
+
+model UserCertification {
+  id              String        @id @default(cuid())
+  userId          String
+  certificationId String
+  expiresAt       DateTime?
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certification   Certification @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, certificationId])
+}
+
+model Asset {
+  id                      String             @id @default(cuid())
+  name                    String
+  description             String?
+  state                   AssetState         @default(AVAILABLE)
+  requiredCertificationId String?
+  requiredCertification   Certification?     @relation(fields: [requiredCertificationId], references: [id], onDelete: SetNull)
+  usageCount              Int                @default(0)
+  maintenanceEveryUses    Int                @default(10)
+  bookings                Booking[]
+  maintenanceRecords      MaintenanceRecord[]
+  createdAt               DateTime           @default(now())
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  assetId    String
+  userId     String
+  startAt    DateTime
+  endAt      DateTime
+  status     BookingStatus @default(RESERVED)
+  createdAt  DateTime      @default(now())
+  asset      Asset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MaintenanceRecord {
+  id          String   @id @default(cuid())
+  assetId     String
+  reason      String
+  isResolved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
